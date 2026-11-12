@@ -1415,9 +1415,50 @@ main button:disabled { opacity: .58 !important; cursor: not-allowed !important; 
             ['financeIncomes','financeExpenses','financeCategories','financeFixed','financeLoans','financeDebts','financeHenry','financePaymentStatus','healthRecords'].forEach(k=>{if(!Array.isArray(appState[k]))appState[k]=[];});
         }
 
-        function saveState() {
-            localStorage.setItem('andrea_suite_state_v9', JSON.stringify(appState));
-        }
+        function prepararDatosPopup(callObj, reqObj) {
+    const llamada = callObj || (appState.calls || []).find(c => c.status !== 'Finalizado') || (appState.calls || [])[0];
+    if (!llamada) return;
+
+    const solicitudes = reqObj ? [reqObj] : (llamada.requests || []);
+    const listaServicios = [];
+
+    solicitudes.forEach(r => {
+        (r.servicios || []).forEach(s => {
+            const nombre = typeof s === 'string' ? s : (s.nombre || '');
+            const doctor = typeof s === 'object' && s.doctor ? `Dr. ${s.doctor}` : '';
+            const dni = typeof s === 'object' && s.dni ? `DNI: ${s.dni}` : '';
+            if (nombre) {
+                listaServicios.push({
+                    nombre,
+                    doctor,
+                    dni,
+                    hospital: r.hospital || '',
+                    tipo: `${r.tipo || 'Consulta'} (${r.grupoEtario || 'Adulto'})`
+                });
+            }
+        });
+    });
+
+    const datosTurno = {
+        telefono: llamada.phone || "",
+        estado: llamada.status || "Llamada en curso",
+        fecha: llamada.fechaHora || "",
+        hospital: solicitudes[0]?.hospital || "",
+        tipo: solicitudes[0] ? `${solicitudes[0].tipo} (${solicitudes[0].grupoEtario})` : "",
+        servicios: listaServicios
+    };
+
+    const jsonStr = JSON.stringify(datosTurno);
+    localStorage.setItem('as_turno_actual', jsonStr);
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText('AS_POPUP:' + jsonStr).catch(() => {});
+    }
+}
+
+function saveState() {
+    localStorage.setItem('andrea_suite_state_v9', JSON.stringify(appState));
+    prepararDatosPopup();
+}
 
         const workspacePageMeta = {
             'personal-agenda': {title:'AGENDA PERSONAL', subtitle:'Organización de actividades y compromisos personales.'},
@@ -1768,7 +1809,7 @@ main button:disabled { opacity: .58 !important; cursor: not-allowed !important; 
                     const isNiño = r.grupoEtario === 'Niño';
                     const hLink = getHospitalLink(r.hospital);
                     const linkBtn = (hLink && r.hospital !== "Cualquier hospital") ? 
-                        `<a href="${hLink}" target="_blank" class="hospital-ingreso-link inline-flex items-center justify-center gap-1.5 text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-pink-400" style="background-color:#d81b70 !important;background-image:none !important;color:#ffffff !important;border:1px solid #b9155d !important;opacity:1 !important;visibility:visible !important;" aria-label="Ingresar al sistema del hospital">Ingreso <i data-lucide="external-link" class="w-3.5 h-3.5" style="color:#ffffff !important"></i></a>` : '';
+                        `<a href="${hLink}" target="_blank" onclick="prepararDatosPopup()" class="hospital-ingreso-link inline-flex items-center justify-center gap-1.5 text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-pink-400" style="background-color:#d81b70 !important;background-image:none !important;color:#ffffff !important;border:1px solid #b9155d !important;opacity:1 !important;visibility:visible !important;" aria-label="Ingresar al sistema del hospital">Ingreso <i data-lucide="external-link" class="w-3.5 h-3.5" style="color:#ffffff !important"></i></a>` : '';
 
                     const servsList = r.servicios || [];
                     const servsVertical = servsList.map(s => {
